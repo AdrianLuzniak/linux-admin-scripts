@@ -1,10 +1,31 @@
+# ===============================
+# System Audit Script (sys-audit.sh)
+#
+# Features:
+# - Generates a detailed audit report about system health and configuration
+# - Logs execution to syslog with `logger`
+# - Supports short and colorless output via CLI arguments
+# - Saves reports to a timestamped log file in /var/log/sys-audit
+# - Verifies sudo/root privileges before execution
+#
+# Arguments:
+#   --short       → generates minimal report (skips heavy checks)
+#   --no-color    → disables colored output
+#   --output=FILE → saves output to a custom log file path
+#
+# Tested On:
+# - CentOS Stream 9 (fully compatible)
+# - Should work on RHEL-based systems (Rocky, AlmaLinux, RHEL)
+#
+# Author:    Adrian Łuźniak
+# Created:   2025-06-14
+# ===============================
+
 #!/bin/bash
 
 LOG_DIR="/var/log/sys-audit"
 LOG_FILE="$LOG_DIR/$(hostname)_$(date +%Y-%m-%d_%H_%M_%S).log"
 SERVICES=(sshd cron firewalld NetworkManager systemd-journald)
-
-
 
 # Startup options
 FULL_MODE=true
