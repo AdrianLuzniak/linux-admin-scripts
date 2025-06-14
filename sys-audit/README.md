@@ -40,7 +40,7 @@ This Bash script performs a comprehensive system audit on a Linux machine and ge
 - Root (sudo) privileges to run
 - Installed commands: `lscpu`, `free`, `systemctl`, `df`, `dmesg`, `journalctl`, `who`, `ss`, `ip`, `getent`, `chage`, `find`, `rpm`, `dnf` or `yum`
 - Access to `/var/log/sys-audit/` directory or write permission to the chosen output directory
-
+- **Tested on:** CentOS Stream 9 (should work on other RHEL-based distributions)
 ---
 
 ## Usage Examples
