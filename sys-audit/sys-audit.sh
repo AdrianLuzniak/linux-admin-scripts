@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # ===============================
 # System Audit Script (sys-audit.sh)
 #
@@ -20,8 +22,6 @@
 # Author:    Adrian Łuźniak
 # Created:   2025-06-14
 # ===============================
-
-#!/bin/bash
 
 LOG_DIR="/var/log/sys-audit"
 LOG_FILE="$LOG_DIR/$(hostname)_$(date +%Y-%m-%d_%H_%M_%S).log"
