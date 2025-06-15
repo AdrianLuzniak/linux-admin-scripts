@@ -61,12 +61,24 @@ grant_sudo () {
         return 1
     fi
 
+    # Detect which sudo group exists: sudo or wheel
+    local sudo_group=""
+    if getent group sudo >/dev/null 2>&1; then
+        sudo_group="sudo"
+    elif getent group wheel >/dev/null 2>&1; then
+        sudo_group="wheel"
+    else
+        echo "Neither 'sudo' nor 'wheel' group exists on this system."
+        return 1
+    fi
+
+    # Check if user is already in sudo group
     if groups "$username" | grep -qw "sudo"; then # -q silent mode; -w match whole word
         echo "User '$username' already has sudo privileges."
         return 0
     fi
     # Add user to the sudo group
-    usermod -aG sudo "$username"
+    usermod -aG "$sudo_group" "$username"
     if [ $? -ne 0 ]; then 
         echo "Failed to add '$username' to the sudo group"
         return 1
