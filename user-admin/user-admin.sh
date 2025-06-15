@@ -10,6 +10,11 @@
 # - Generate user report
 # ===============================
 
+SCRIPT_NAME=$(basename "$0") #get only script name without relative path
+ACTION="$1"
+USERNAME="$2"
+LOCK_TYPE="$3"
+
 add_user () {
     local username="$1"
 
@@ -73,7 +78,7 @@ grant_sudo () {
     fi
 
     # Check if user is already in sudo group
-    if groups "$username" | grep -qw "sudo"; then # -q silent mode; -w match whole word
+    if groups "$username" | grep -qw "$sudo_group"; then # -q silent mode; -w match whole word
         echo "User '$username' already has sudo privileges."
         return 0
     fi
@@ -90,21 +95,42 @@ grant_sudo () {
 lock_user () {
     local username="$1"
 
+    # ${parameter:-default}
+    # parameter — is a variable (e.g. $2).
+    # default — is the default value you want to assign if the variable is empty or undefined.
+    # :-  "If parameter is unset or empty, use default."
+    local lock_type="${2:-soft}" 
+  
     # Check if user exists
     if ! id "$username" &>/dev/null; then
         echo "User '$username' does not exist."
         return 1
     fi
 
-    # Lock the user account
-    passwd -l "$username"
-    if [ $? -ne 0 ]; then
-        echo "Failed to lock user '$username'."
-        return 1
-    fi
-    
-    echo "User '$username' has been locked successfully."
+    echo "Locking user '$username' with '$lock_type' lock..."
 
+    case "$lock_type" in
+        soft)
+            # Soft lock the user account
+            passwd -l "$username"
+            if [ $? -ne 0 ]; then
+                echo "Failed to apply soft lock user '$username'."
+                return 1
+            fi
+            echo "Soft lock applied to user '$username'."
+            ;;
+        hard) 
+            # {} logical block of commands to be executed as a whole expression
+            passwd -l "$username" || { echo "Failed to lock password for user '$username'."; return 1; } # lock password for user
+            usermod -L "$username"  || { echo "Failed to lock account for user '$username'."; return 1; } # lock user account
+            usermod -s /sbin/nologin "$username" || { echo "Failed to set nologin shell for user '$username'."; return 1; } # lock interactive shell login
+            echo "Hard lock applied to user '$username'."
+            ;;
+        *)
+            echo "Invalid lock type '$lock_type'. Use 'soft' or 'hard'."
+            return 1
+            ;;
+    esac
 }
 
 unlock_user (){
@@ -116,9 +142,9 @@ unlock_user (){
     fi
 
     echo "Unlocking user '$username'..."
-    sudo passwd -u "$username" # unlock password for user
-    sudo usermod -U "$username" # unlock user account
-    sudo usermod -s /bin/bash "$username" #u nlocking the interactive shell when logging in
+    passwd -u "$username" || { echo "Failed to unlock password for user '$username'."; return 1; } # unlock password for user
+    usermod -U "$username" || { echo "Failed to unlock account for user '$username'."; return 1; } # unlock user account
+    usermod -s /bin/bash "$username" || { echo "Failed to unlock interactive shell login for user '$username'."; return 1; } # unlocking the interactive shell when logging in
     echo "User '$username' was successfully unlocked."
 
 }
@@ -143,11 +169,23 @@ generate_report() {
 
     echo -e "\n===== USERS WITH SUDO PRIVILEGES =====" >> "$report_file"
     if [ -f /etc/group ]; then
-        sudo_users=$(getent group sudo | awk -F: '{ print $4 }' | tr ',' '\n' | sort)
+        if getent group sudo >/dev/null 2>&1; then
+            sudo_users=$(getent group sudo | awk -F: '{ print $4 }' | tr ',' '\n' | sort)
+        elif getent group wheel >/dev/null 2>&1; then
+            sudo_users=$(getent group wheel | awk -F: '{ print $4 }' | tr ',' '\n' | sort)
+        else 
+            sudo_users=""
+        fi
+
         if [ -z "$sudo_users" ]; then
             echo "No users in sudo group." >> "$report_file"
         else
             echo "$sudo_users" | awk '{ print "- " $1 }' >> "$report_file"
+        fi
+        
+        if [ $? -ne 0 ]; then
+        echo "Failed to append sudo users to $report_file"
+        return 1
         fi
     fi
 
@@ -155,52 +193,81 @@ generate_report() {
     cat "$report_file"
 }
 
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Please execute this script with sudo privileges."
+    exit 1
+fi
+
 # Main argument handling
-case "$1" in
-    add)
-        if [ -z "$2" ]; then
-            echo "Usage: $0 add <username>"
+case "$ACTION" in
+    --add|-a|add)
+        if [ -z "$USERNAME" ]; then
+            echo "Usage: $SCRIPT_NAME add <username>"
             exit 1
         fi
-        add_user "$2"
+        add_user "$USERNAME"
+        exit $?
         ;;
-    delete)
-        if [ -z "$2" ]; then
-            echo "Usage: $0 delete <username>"
+    --delete|-d|delete)
+        if [ -z "$USERNAME" ]; then
+            echo "Usage: $SCRIPT_NAME delete <username>"
             exit 1
         fi
-        delete_user "$2"
+        delete_user "$USERNAME"
+        exit $?
         ;;
-    sudo) 
-        if [ -z "$2" ]; then
-            echo "Usage $0 sudo <username>"
+    --sudo|-s|sudo) 
+        if [ -z "$USERNAME" ]; then
+            echo "Usage $SCRIPT_NAME sudo <username>"
             exit 1
         fi
-        grant_sudo "$2"
+        grant_sudo "$USERNAME"
+        exit $?
         ;;
-    lock)
-        if [ -z "$2" ]; then
-            cho "Usage: $0 lock <username>"
+    --lock|-l|lock)
+        if [ -z "$USERNAME" ]; then
+            echo "Usage: $SCRIPT_NAME lock <username> <soft|hard>"
             exit 1
         fi
-        lock_user "$2"
-        ;;
-    unlock)
-        if [ -z "$2" ]; then
-            cho "Usage: $0 lock <username>"
+
+        if [[ "$LOCK_TYPE" != "soft" && "$LOCK_TYPE" != "hard" ]]; then
+            echo "Invalid lock type '$LOCK_TYPE'. Use 'soft' or 'hard'."
             exit 1
         fi
-        unlock_user "$2"
+
+        lock_user "$USERNAME" "$LOCK_TYPE"
+        exit_code=$?    
+        exit $exit_code 
+
         ;;
-    report)
+    --unlock|-u|unlock)
+        if [ -z "$USERNAME" ]; then
+            echo "Usage: $SCRIPT_NAME unlock <username>"
+            exit 1
+        fi
+        unlock_user "$USERNAME"
+        exit $?
+        ;;
+    --report|-r|report)
         generate_report
+        exit $?
         ;;
     *)
-        echo "Available commands:"
-        echo "  add <username>     - Add a new user"
-        echo "  delete <username>  - Delete an existing user"
-        echo "  sudo <username>    - Grant sudo privileges"
-        echo "  lock <username>    - Lock user account"
-        echo "  report             - Generate user access report"
+        echo "Usage: $SCRIPT_NAME <option> [arguments]"
+        echo ""
+        echo "Options:"
+        echo "  --add|-a|add <username>           Add a new user"
+        echo "  --delete|-d|delete <username>     Delete a user"
+        echo "  --sudo|-s|sudo <username>         Grant sudo privileges to a user"
+        echo "  --lock|-l|lock <username> <type>  Lock user account (type: soft | hard)"
+        echo "  --unlock|-u|unlock <username>     Unlock user account"
+        echo "  --report|-r|report                Generate a sudo users report"
+        echo ""
+        echo "Examples:"
+        echo "  $SCRIPT_NAME --add alice"
+        echo "  $SCRIPT_NAME -l bob soft"
+        echo "  $SCRIPT_NAME report"
+        exit 1
         ;;
 esac
