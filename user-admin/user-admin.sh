@@ -229,6 +229,32 @@ generate_report() {
         fi
     fi
 
+	echo -e "\n===== USERS WITH SUDO WITHOUT PASSWORD =====" >> "$report_file"
+
+	# Check if sudoers for user exist
+	if [ -d /etc/sudoers.d ]; then
+		local nopasswd_users=()
+
+		# Search for user sudoers files in loop
+		for file in /etc/sudoers.d/*; do
+			if grep -q "NOPASSWD" "$file"; then
+				local user=$(basename "$file")
+				nopasswd_users+=("$user")
+			fi
+		done
+
+		# Check if user list with sudoers is empty
+		if [ ${#nopasswd_users[@]} -eq 0 ]; then
+			echo "No users with sudo without password found." >> "$report_file"
+		else
+			for u in "${nopasswd_users[@]}"; do
+				echo "- $u" >> "$report_file"
+			done
+		fi
+	else
+		echo "/etc/sudoers.d directory not found." >> "$report_file"
+	fi
+
     echo "Report saved to '$report_file'"
     cat "$report_file"
 }
