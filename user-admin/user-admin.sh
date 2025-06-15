@@ -148,6 +148,46 @@ unlock_user (){
     echo "User '$username' was successfully unlocked."
 
 }
+
+add_user_nopasswd_sudo() {
+    local username="$1"
+	local sudoers_file="/etc/sudoers.d/$username"
+
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist."
+        return 1
+    fi
+
+    
+	# Check if file already exists
+	if [ ! -f "$sudoers_file" ]; then
+		echo "$username ALL=(ALL) NOPASSWD: ALL" > "$sudoers_file"
+		chmod 0440 "$sudoers_file"
+
+		if visudo -cf "$sudoers_file"; then # check syntax of new sudoers file -c check syntax; -f check file other than /etc/sudoers
+			echo "User '$username' has been added to sudoers without password prompt."
+		else
+			echo "Syntax error in $sudoers_file. Removing..."
+			rm -f "$sudoers_file"
+			return 1
+		fi
+	else
+		echo "Sudoers file for user '$username' already exists at $sudoers_file"
+	fi
+}
+
+remove_nopasswd_sudo_from_user (){
+	local username="$1"
+	local sudoers_file="/etc/sudoers.d/$username"
+
+	if [ -f "$sudoers_file" ]; then
+		rm -f "$sudoers_file"
+		echo "Sudoers entry for user '$username' has been removed."
+	else
+		echo "No sudoers file found for user '$username'."
+	fi
+}
+
 generate_report() {    
     local report_file="user_report.txt"
     echo "Generating user report"
@@ -249,6 +289,20 @@ case "$ACTION" in
         unlock_user "$USERNAME"
         exit $?
         ;;
+	--nopasswd-sudo|-n|nopasswd-sudo)
+		if [ -z "$USERNAME" ]; then
+			echo "Usage: $SCRIPT_NAME nopasswd-sudo <username> [remove]"
+			exit 1
+		fi
+		
+		if [ "$3" == "remove" ]; then
+			remove_nopasswd_sudo_from_user "$USERNAME"
+		else
+			add_user_nopasswd_sudo "$USERNAME" 
+		fi
+		exit $?
+		;;
+
     --report|-r|report)
         generate_report
         exit $?
@@ -260,6 +314,7 @@ case "$ACTION" in
         echo "  --add|-a|add <username>           Add a new user"
         echo "  --delete|-d|delete <username>     Delete a user"
         echo "  --sudo|-s|sudo <username>         Grant sudo privileges to a user"
+		echo "  --nopasswd-sudo|-n|nopasswd-sudo <username> [remove]  Add or remove user from sudoers without password prompt"
         echo "  --lock|-l|lock <username> <type>  Lock user account (type: soft | hard)"
         echo "  --unlock|-u|unlock <username>     Unlock user account"
         echo "  --report|-r|report                Generate a sudo users report"
