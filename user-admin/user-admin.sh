@@ -107,6 +107,21 @@ lock_user () {
 
 }
 
+unlock_user (){
+    local username="$1"
+
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist."
+        return 1
+    fi
+
+    echo "Unlocking user '$username'..."
+    sudo passwd -u "$username" # unlock password for user
+    sudo usermod -U "$username" # unlock user account
+    sudo usermod -s /bin/bash "$username" #u nlocking the interactive shell when logging in
+    echo "User '$username' was successfully unlocked."
+
+}
 generate_report() {    
     local report_file="user_report.txt"
     echo "Generating user report"
@@ -169,6 +184,13 @@ case "$1" in
             exit 1
         fi
         lock_user "$2"
+        ;;
+    unlock)
+        if [ -z "$2" ]; then
+            cho "Usage: $0 lock <username>"
+            exit 1
+        fi
+        unlock_user "$2"
         ;;
     report)
         generate_report
