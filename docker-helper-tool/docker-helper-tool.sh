@@ -182,18 +182,19 @@ main_menu() {
     # REPLY will have the value "2" (i.e. the option number),
     # opt will have the value "Stop" (i.e. the value of the selected option from the list
 
-        select opt in "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
+        select opt in "Install Docker" "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
             case $REPLY in
-                1) start_container ;;
-                2) stop_container ;;
-                3) remove_container ;;
-                4) show_stats ;;
-                5) build_image ;;
-                6) push_image ;;
-                7) list_containers ;;
-                8) list_volumes ;;
-                9) cleanup_docker ;;
-                10) echo -e "${BLUE}Exiting...${NC}"; exit 0 ;;
+                1) install_docker ;;
+                2) start_container ;;
+                3) stop_container ;;
+                4) remove_container ;;
+                5) show_stats ;;
+                6) build_image ;;
+                7) push_image ;;
+                8) list_containers ;;
+                9) list_volumes ;;
+                10) cleanup_docker ;;
+                11) echo -e "${BLUE}Exiting...${NC}"; exit 0 ;;
                 *) echo -e "${RED}Invalid option, please try again.${NC}" ;;
             esac
             break # exit select, return to while - refresh menu
