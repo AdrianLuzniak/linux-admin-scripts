@@ -101,6 +101,18 @@ list_containers() {
 # "table ..." — is an instruction to display the output in tabular format.
 # {{.Names}}, {{.Image}}, {{.Status}} — are placeholders (places to insert values) that correspond to specific container fields:
 
+create_container() {
+    read -p "Enter image name (e.g. ubuntu:latest): " img
+    read -p "Enter container name (optional): " name
+    read -p "Enter additional docker run options (e.g. -d -p 80:80): " options
+
+    if [[ -n "$name" ]]; then
+        docker run $options --name "$name" "$img" && echo -e "${GREEN}Container created and started successfully.${NC}" || echo -e "${RED}Failed to create container.${NC}"
+    else
+        docker run $options "$img" && echo -e "${GREEN}Container created and started successfully.${NC}" || echo -e "${RED}Failed to create container.${NC}"
+    fi
+}
+
 start_container() {
     read -p "Enter container name: " name # -p wait for input, save it in name variable
     docker start "$name" && echo -e "${GREEN}Container '$name' started.${NC}" || echo -e "${RED}Failed to start container '$name'.${NC}"
@@ -132,6 +144,15 @@ push_image() {
     read -p "Enter image name/tag (e.g user/image:tag): " img_name
     docker login -u "$username"
     docker push "$img_name" && echo -e "${GREEN}Image '$img_name' pushed successfully.${NC}" || echo -e "${RED}Failed to push image '${img_name}'.${NC}"
+}
+
+list_images() {
+    docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}"
+}
+
+remove_image() {
+    read -p "Enter image ID or name to remove: " img
+    docker rmi "$img" && echo -e "${GREEN}Image '$img' removed successfully.${NC}" || echo -e "${RED}Failed to remove image '$img'.${NC}"
 }
 
 # --------- Volume and Network Operations ---------
@@ -182,19 +203,22 @@ main_menu() {
     # REPLY will have the value "2" (i.e. the option number),
     # opt will have the value "Stop" (i.e. the value of the selected option from the list
 
-        select opt in "Install Docker" "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
+        select opt in "Install Docker" "Create Container" "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Images" "Remove Image" "List Volumes" "Cleanup Docker" "Exit"; do
             case $REPLY in
                 1) install_docker ;;
-                2) start_container ;;
-                3) stop_container ;;
-                4) remove_container ;;
-                5) show_stats ;;
-                6) build_image ;;
-                7) push_image ;;
-                8) list_containers ;;
-                9) list_volumes ;;
-                10) cleanup_docker ;;
-                11) echo -e "${BLUE}Exiting...${NC}"; exit 0 ;;
+                2) create_container ;;
+                3) start_container ;;
+                4) stop_container ;;
+                5) remove_container ;;
+                6) show_stats ;;
+                7) build_image ;;
+                8) push_image ;;
+                9) list_containers ;;
+                10) list_images ;;
+                11) remove_image ;;
+                12) list_volumes ;;
+                13) cleanup_docker ;;
+                14) echo -e "${BLUE}Exiting...${NC}" ; exit 0 ;;
                 *) echo -e "${RED}Invalid option, please try again.${NC}" ;;
             esac
             break # exit select, return to while - refresh menu
