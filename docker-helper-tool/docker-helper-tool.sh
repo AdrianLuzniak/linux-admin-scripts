@@ -17,7 +17,7 @@ install_docker() {
     echo -e "${BLUE}Starting Docker installation for CentOS... ${NC}"
 
     # Remove older versions
-    sudo yum remove -y docker \
+    sudo dnf remove -y docker \
                       docker-client \
                       docker-client-latest \
                       docker-common \
