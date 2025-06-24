@@ -150,32 +150,34 @@ cleanup_docker() {
 
 # --------- Main Menu ---------
 main_menu() {
-    clear
-    echo "Welcome to Docker Helper Tool!"
-    echo "Choose an option:"
-    PS3="Select an option (1-9):"
+    while true; do
+        clear
+        echo "Welcome to Docker Helper Tool!"
+        echo "Choose an option:"
+        PS3="Select an option (1-9):"
 
-# The REPLY variable in Bash is automatically set by the select construct – you don't need to define it
-# When the user types e.g. 2 and presses Enter:
-# REPLY will have the value "2" (i.e. the option number),
-# opt will have the value "Stop" (i.e. the value of the selected option from the list
+    # The REPLY or opt variable in Bash is automatically set by the select construct – you don't need to define it
+    # When the user types e.g. 2 and presses Enter:
+    # REPLY will have the value "2" (i.e. the option number),
+    # opt will have the value "Stop" (i.e. the value of the selected option from the list
 
-    select opt in "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
-        case $REPLY in
-            1) start_container ;;
-            2) stop_container ;;
-            3) remove_container ;;
-            4) show_stats ;;
-            5) build_image ;;
-            6) push_image ;;
-            7) list_containers ;;
-            8) list_volumes ;;
-            9) cleanup_docker ;;
-            10) echo -e "${BLUE}Exiting...${NC}"; exit 0 ;;
-            *) echo -e "${RED}Invalid option, please try again.${NC}" ;;
-        esac
+        select opt in "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
+            case $opt in
+                1) start_container ;;
+                2) stop_container ;;
+                3) remove_container ;;
+                4) show_stats ;;
+                5) build_image ;;
+                6) push_image ;;
+                7) list_containers ;;
+                8) list_volumes ;;
+                9) cleanup_docker ;;
+                10) echo -e "${BLUE}Exiting...${NC}"; exit 0 ;;
+                *) echo -e "${RED}Invalid option, please try again.${NC}" ;;
+            esac
+            break # exit select, return to while - refresh menu
+        done
         pause
-        main_menu
     done
 }
 
