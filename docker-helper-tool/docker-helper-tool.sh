@@ -156,13 +156,13 @@ main_menu() {
         echo "Choose an option:"
         PS3="Select an option (1-9):"
 
-    # The REPLY or opt variable in Bash is automatically set by the select construct – you don't need to define it
+    # The REPLY variable in Bash is automatically set by the select construct – you don't need to define it
     # When the user types e.g. 2 and presses Enter:
     # REPLY will have the value "2" (i.e. the option number),
     # opt will have the value "Stop" (i.e. the value of the selected option from the list
 
         select opt in "Start Container" "Stop Container" "Remove Container" "Show Stats" "Build Image" "Push Image" "List Containers" "List Volumes" "Cleanup Docker" "Exit"; do
-            case $opt in
+            case $REPLY in
                 1) start_container ;;
                 2) stop_container ;;
                 3) remove_container ;;
