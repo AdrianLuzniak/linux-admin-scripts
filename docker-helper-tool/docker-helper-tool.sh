@@ -14,31 +14,52 @@ NC='\033[0m' # No Color
 
 # --------- Docker installation for CentOS ---------
 install_docker() {
-    echo -e "${BLUE}Starting Docker installation for CentOS... ${NC}"
+    LOG_FILE="docker_install.log"
+    echo "========== $(date '+%Y-%m-%d %H:%M:%S') ==========" | tee -a "$LOG_FILE"
 
-    # Remove older versions
-    sudo dnf remove -y docker \
-                      docker-client \
-                      docker-client-latest \
-                      docker-common \
-                      docker-latest \
-                      docker-latest-logrotate \
-                      docker-logrotate \
-                      docker-engine
+    {
+        echo -e "${BLUE}[INFO] Removing old Docker versions (if any)...${NC}"
+        sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine || true
 
-    sudo yum install -y yum-utils
+        echo -e "${BLUE}[INFO] Updating system packages...${NC}"
+        sudo dnf -y update
 
-    # Set up the stable repository
-    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        echo -e "${BLUE}[INFO] Installing dnf-plugins-core (with --nogpgcheck)...${NC}"
+        sudo dnf install -y --nogpgcheck dnf-plugins-core
 
-    # Install Docker Engine
-    sudo yum install -y docker-ce docker-ce-cli containerd.io
+        echo -e "${BLUE}[INFO] Adding Docker repository...${NC}"
+        sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 
-    # Start and enable docker service
-    sudo systemctl start docker
-    sudo systemctl enable docker
+        echo -e "${BLUE}[INFO] Installing Docker packages (with --nogpgcheck)...${NC}"
+        sudo dnf install -y --nogpgcheck docker-ce docker-ce-cli containerd.io
 
-    echo -e "${GREEN}Docker installation completed.${NC}"
+        echo -e "${BLUE}[INFO] Starting and enabling Docker service...${NC}"
+        sudo systemctl start docker
+        sudo systemctl enable docker
+
+        echo -e "${BLUE}[INFO] Creating docker group if it does not exist and adding user '$USER' to it...${NC}"
+        sudo groupadd -f docker
+        sudo usermod -aG docker "$USER"
+
+        echo -e "${GREEN}[INFO] Docker version:${NC}"
+        docker --version
+
+        echo -e "${GREEN}[INFO] Docker info:${NC}"
+        docker info
+
+        echo -e "${BLUE}[INFO] Testing Docker installation by running hello-world container...${NC}"
+        sudo docker run hello-world
+
+    } 2>&1 | tee -a "$LOG_FILE"
+
+    # Sprawdzanie statusu ostatniego polecenia (docker run)
+    if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+        echo -e "${GREEN}Docker installation completed successfully.${NC}"
+        echo -e "${YELLOW}Please log out and log back in (or reboot) to apply docker group permissions.${NC}"
+    else
+        echo -e "${RED}Docker installation failed. Check the log file at $LOG_FILE for details.${NC}"
+        return 1
+    fi
 }
 
 # --------- General Functions ---------
