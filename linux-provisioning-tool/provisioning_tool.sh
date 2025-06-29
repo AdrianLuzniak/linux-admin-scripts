@@ -93,3 +93,86 @@ setup_users() {
     done
 }
 
+configure_ssh() {
+    if [ ! -f "$SSHD_BACKUP"]; then
+        copy_file "$SSHD_CONFIG" "$SSHD_BACKUP"
+    fi
+
+    # Look for PasswordAuthentication, PubkeyAuthentication and change it's values
+    run_cmd "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication $ENABLE_PASSWORD_AUTH/' $SSHD_CONFIG"
+    run_cmd "sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication $ENABLE_SSH_KEY_AUTH/' $SSHD_CONFIG"
+
+    # Create and setup sftp group
+    # SFTP is supposed to work in the chrooted /home/<username>
+    # Instead of the standard shell, internal-sftp is forced
+    # TCP tunneling is forbidden (no port forwarding)
+    if ! grep -q "Match Group sftpusers" "$SSHD_CONFIG"; then
+        run_cmd "groupadd -f sftpusers"
+        echo -e "\nMatch Group sftpusers\n  ChrootDirectory /home/%u\n  ForceCommand internal-sftp\n  AllowTcpForwarding no\n" | tee -a "$SSHD_CONFIG"
+    fi
+
+    # Validate sshd syntax
+    if sshd -t -f "$SSHD_CONFIG"; then
+        echo " SSH configuration has correct syntax"
+    else
+        echo "Incorrect syntax in SSH configuration! Restoring backup config."
+        copy_file "$SSHD_BACKUP" "$SSHD_BACKUP"
+        return 1
+    fi
+
+    run_cmd "systemctl restart sshd"
+}
+
+configure_system() {
+    run_cmd "timedatectl set-timezone $TIMEZONE"
+    run_cmd "hostnamectl set-hostname $HOSTNAME_SET"
+    run_cmd "timedatectl set-ntp true"
+}
+
+# Command checks if provided command exist, -v verify mode - returns path to executable
+configure_firewall() {
+    if command -v ufw &>/dev/null; then
+        run_cmd "ufw allow $SSH_PORT"
+        for PORT in "${PORTS_TO_OPEN[@]}"; do
+            run_cmd "ufw allow $PORT"
+        done
+        run_cmd "ufw --force enable" # Enable firewall
+    elif command -v firewall-cmd &>/dev/null; then
+        for PORT in "${$PORTS_TO_OPEN[@]}"; do
+            run_cmd "firewall-cmd --permanent --add-port=${PORT}/tcp"
+        done
+        run_cmd "firewall-cmd --reload"
+    else
+        echo "[WARN] No firewall tool found"
+    fi
+}
+
+rollback_changes() {
+    echo "[INFO] Rolling back changes..."
+    if [ -f "$SSHD_BACKUP" ]; then
+        copy_file "$SSHD_BACKUP" "$SSHD_CONFIG"
+        run_cmd "systemctl restart sshd"
+        echo "[INFO] Restored sshd_config from backup"
+    fi
+
+    for USER in "${USERS[@]}"; do
+        if id "$USER" &>/dev/null; then
+            run_cmd "userdel -r $USER" # -r delete home directory and user files
+        fi
+    done
+
+    if getent group "$USER_GROUP" &>/dev/null; then
+        run_cmd "groupdel $USER_GROUP"
+    fi
+
+    if command -v ufw &>/dev/null; then
+        for PORT in "${PORTS_TO_OPEN[@]}"; do
+            run_cmd "ufw delete allow $PORT" || true # || true means don't exit script even if command failed
+        done
+    elif command -v firewall-cmd &>/dev/null; then
+        for PORT in "${PORTS_TO_OPEN[@]}"; then
+            run_cmd "firewall-cmd --permanent --remove-port=${PORT}/tcp"
+        done
+        run_cmd "firewall-cmd --reload"
+    fi
+}
