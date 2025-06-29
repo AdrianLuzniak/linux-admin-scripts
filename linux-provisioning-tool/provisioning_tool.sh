@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Bash config
+# -e stops script if any command return exitcode ! 0
+# -u Force error if script use undefined variable
+# -o pipefail causes the entire pipeline to return an error status if any part of the pipeline terminates with an error.
 set -euo pipefail
 
 LOG_FILE="./provision-$(date '+%Y%m%d-%H%M%S').log"
@@ -170,7 +174,7 @@ rollback_changes() {
             run_cmd "ufw delete allow $PORT" || true # || true means don't exit script even if command failed
         done
     elif command -v firewall-cmd &>/dev/null; then
-        for PORT in "${PORTS_TO_OPEN[@]}"; then
+        for PORT in "${PORTS_TO_OPEN[@]}"; do
             run_cmd "firewall-cmd --permanent --remove-port=${PORT}/tcp"
         done
         run_cmd "firewall-cmd --reload"
