@@ -89,7 +89,7 @@ setup_users() {
         fi
 
         local SSH_DIR="/home/$USER/.ssh"
-        local KEY_FILE="autorized_keys/$USER"
+        local KEY_FILE="authorized_keys/$USER"
         if [ -f "$KEY_FILE" ]; then
             run_cmd "mkdir -p $SSH_DIR"
             run_cmd "chmod 700 $SSH_DIR"
