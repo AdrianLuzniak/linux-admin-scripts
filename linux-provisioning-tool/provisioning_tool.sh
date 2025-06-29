@@ -12,8 +12,13 @@ LOG_FILE="./provision-$(date '+%Y%m%d-%H%M%S').log"
 # >(command) means process substitution, create temporary file with output of command
 exec > >(tee -a "$LOG_FILE") 2>&1
 
+# Fetch first arg and set DRY_RUN
 # If DRY_RUN is set use it's value, if NOT false is default option
-DRY_RUN=${DRY_RUN:-false}
+if [[ "${1:-false}" == "true" ]]; then
+  DRY_RUN=true
+else
+  DRY_RUN=false
+fi
 
 REQUIRED_PACKAGES=("htop" "curl" "git")
 USERS=("devuser1" "devuser2")
