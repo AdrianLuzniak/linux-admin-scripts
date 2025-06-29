@@ -6,7 +6,7 @@ LOG_FILE="./provision-$(date '+%Y%m%d-%H%M%S').log"
 
 # First > means redirect stdout
 # >(command) means process substitution, create temporary file with output of command
-exec > >(tee -a "LOG_FILE") 2>&1
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 # If DRY_RUN is set use it's value, if NOT false is default option
 DRY_RUN=${DRY_RUN:-false}
@@ -46,9 +46,9 @@ copy_file(){
 
 #ID - id of linux distributution
 #ID_LIKE - list of distro similar to your linux distro
-pgk_detect(){
+pkg_detect(){
     source /etc/os-release
-    if [[ "$ID_LIKE" == *"rhel"* ]] || [[ "ID" == "rocky" ]]; then
+    if [[ "$ID_LIKE" == *"rhel"* ]] || [[ "$ID" == "rocky" ]]; then
         echo "dnf"
     else
         echo "apt"
@@ -83,10 +83,10 @@ setup_users() {
         local KEY_FILE="autorized_keys/$USER"
         if [ -f "$KEY_FILE" ]; then
             run_cmd "mkdir -p $SSH_DIR"
-            run_cmd "chmod 700 "$SSH_DIR"
+            run_cmd "chmod 700 $SSH_DIR"
             copy_file "$KEY_FILE" "$SSH_DIR/authorized_keys"
             run_cmd "chmod 600 $SSH_DIR/authorized_keys"
-            run_cmd "chown -R $USER:$USER $SSH_DIR\"
+            run_cmd "chown -R $USER:$USER $SSH_DIR"
         else
             echo "[WARN] Missing authorized_keys for $USER"
         fi
@@ -94,7 +94,7 @@ setup_users() {
 }
 
 configure_ssh() {
-    if [ ! -f "$SSHD_BACKUP"]; then
+    if [ ! -f "$SSHD_BACKUP" ]; then
         copy_file "$SSHD_CONFIG" "$SSHD_BACKUP"
     fi
 
@@ -138,7 +138,7 @@ configure_firewall() {
         done
         run_cmd "ufw --force enable" # Enable firewall
     elif command -v firewall-cmd &>/dev/null; then
-        for PORT in "${$PORTS_TO_OPEN[@]}"; do
+        for PORT in "${PORTS_TO_OPEN[@]}"; do
             run_cmd "firewall-cmd --permanent --add-port=${PORT}/tcp"
         done
         run_cmd "firewall-cmd --reload"
@@ -176,3 +176,56 @@ rollback_changes() {
         run_cmd "firewall-cmd --reload"
     fi
 }
+
+auto_mode() {
+    echo "[AUTO] Running full automatic provisioning..."
+    install_packages
+    setup_users
+    configure_ssh
+    configure_system
+    configure_firewall
+    echo "[AUTO] Provisioning completed."
+}
+
+manual_mode() {
+    echo "[MANUAL] Choose actions:"
+    echo "1) Install packages"
+    echo "2) Setup users and SSH keys"
+    echo "3) Configure SSH"
+    echo "4) Set timezone/hostname/NTP"
+    echo "5) Configure firewall"
+    echo "6) Exit"
+    while true; do
+        read -rp "Select [1-6]: " opt # -r ignore special chars, -p show communicate before executing command
+        case $opt in
+            1) install_packages ;;
+            2) setup_users ;;
+            3) configure_ssh ;;
+            4) configure_system ;;
+            5) configure_firewall ;;
+            6) break ;;
+            *) echo "Invalid option" ;;
+        esac
+    done
+}
+
+show_menu() {
+    echo "========== PROVISION MENU =========="
+    echo "1) Automatic provisioning"
+    echo "2) Manual step-by-step provisioning"
+    echo "3) Rollback changes"
+    echo "4) Exit"
+    echo "===================================="
+    read -rp "Choose an option [1-4]: " CHOICE
+
+    case $CHOICE in
+        1) auto_mode ;;
+        2) manual_mode ;;
+        3) rollback_changes ;;
+        4) echo "Bye!"; exit 0 ;;
+        *) echo "Invalid choice"; exit 1 ;;
+    esac
+}
+
+# === START ===
+show_menu
